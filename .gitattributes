@@ -2,3 +2,4 @@ client/Library/PackageCache/com.unity.burst@1.8.4/.Runtime/libburst-llvm-10.dyli
 client/Library/PackageCache/com.unity.burst@1.8.4/.Runtime/libburst-llvm-14.so filter=lfs diff=lfs merge=lfs -text
 client/Library/PackageCache/com.unity.burst@1.8.4/.Runtime/burst-llvm-14.dll filter=lfs diff=lfs merge=lfs -text
 client/Library/PackageCache/com.unity.burst@1.8.4/.Runtime/hostmac/dsymutil filter=lfs diff=lfs merge=lfs -text
+client/Library/PackageCache/com.unity.burst@1.8.4/.Runtime/libburst-llvm-14.dylib filter=lfs diff=lfs merge=lfs -text
