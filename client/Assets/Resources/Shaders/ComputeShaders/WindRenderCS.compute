@@ -1,0 +1,86 @@
+#define NUMTHREAD_X 4
+#define NUMTHREAD_Y 4
+#define NUMTHREAD_Z 4
+
+uniform int3 VolumeSizeMinusOne;
+uniform int OffsetPosX;
+uniform int OffsetPosY;
+uniform int OffsetPosZ;
+uniform float DiffusionForce;
+
+Texture3D<int> WindBufferInputX;
+Texture3D<int> WindBufferInputY;
+Texture3D<int> WindBufferInputZ;
+
+RWTexture3D<int> WindBufferOutputX;
+RWTexture3D<int> WindBufferOutputY;
+RWTexture3D<int> WindBufferOutputZ;
+
+#pragma kernel WindOffsetDataKernel
+[numthreads(NUMTHREAD_X,NUMTHREAD_Y,NUMTHREAD_Z)]
+void WindOffsetDataKernel (uint3 id : SV_DispatchThreadID)
+{
+    int3 offsetPos = int3(OffsetPosX, OffsetPosY, OffsetPosZ) + id;
+    int3 targetPos = max(min(offsetPos, VolumeSizeMinusOne), 0);
+    WindBufferOutputX[id] = WindBufferInputX[targetPos];
+    WindBufferOutputY[id] = WindBufferInputY[targetPos];
+    WindBufferOutputZ[id] = WindBufferInputZ[targetPos];
+}
+float PackIntToFloat()
+{
+    
+}
+#pragma kernel WindDiffusionKernel
+[numthreads(NUMTHREAD_X,NUMTHREAD_Y,NUMTHREAD_Z)]
+void WindDiffusionKernel (int3 dispatchThreadID : SV_DispatchThreadID, int3 groupThreadID : SV_GroupThreadID)
+{
+    // 采样int格式的Volume纹理,并转换格式
+    float windInput = PackIntToFloat(WindBufferInput[dispatchThreadID.xyz].r);
+    // 计算节点Groupid
+    int cacheIndex = groupThreadID.x + groupThreadID.y * 4 + groupThreadID.z * 16;
+    m_Cache[cacheIndex] = windInput;
+    GroupMemoryBarrierWithGroupSync();
+    // 判断各个方向上的越界问题和数据cache获取逻辑
+    float xr = 0;
+    float xl = 0;
+    float yr = 0;
+    float yl = 0;
+    float zr = 0;
+    float zl = 0;
+    // X轴
+    if(groupThreadID.x < N - 1)
+    {
+        int3 gtID = groupThreadID + int3(1, 0, 0);
+        xr = m_Cache[gtID.x + gtID.y * 4 + gtID.z * 16];
+    }
+    else
+    {
+        int tIDx = min(dispatchThreadID.x + 1, VolumeSizeMinusOne.x);
+        xr = PackIntToFloat(WindBufferInput[int3(tIDx, dispatchThreadID.y, dispatchThreadID.z)].r);
+    }
+    if(groupThreadID.x != 0)
+    {
+        int3 gtID = groupThreadID + int3(-1, 0, 0);
+        xl = m_Cache[gtID.x + gtID.y * 4 + gtID.z * 16];
+    }
+    else
+    {
+        int tIDx = max(dispatchThreadID.x - 1, 0);
+        xl = PackIntToFloat(WindBufferInput[int3(tIDx, dispatchThreadID.y, dispatchThreadID.z)].r);
+    }
+    // Y轴Z轴同理，省略
+    ......
+    // 最终合并diffusion模拟
+    float finalData = xr + xl + yr + yl + zr + zl - windInput * 6;
+    finalData = finalData * DiffusionForce + windInput;
+    WindBufferOutput[dispatchThreadID.xyz] = PackFloatToInt(finalData);
+}
+
+
+#pragma kernel WindMotorSpeedKernel
+
+#pragma kernel WindAdvectionKernel
+
+#pragma kernel WindBufferExchangeKernel
+
+#pragma kernel WindMergeChannelKernel
